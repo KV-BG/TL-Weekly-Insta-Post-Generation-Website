@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Random Pair Selector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Simple transition for a smoother appearance */
+        .transition-all {
+            transition: all 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-200 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl bg-slate-800/60 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-slate-700">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-white">Random Pair Selector</h1>
+            <p class="text-slate-400 mt-2">Selects a unique pair of names over a 4-run cycle.</p>
+        </header>
+
+        <main>
+            <!-- Button to trigger the selection -->
+            <div class="text-center mb-8">
+                <button id="select-button" class="bg-indigo-600 text-white font-semibold px-8 py-3 rounded-lg shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/50 transform hover:-translate-y-0.5 transition-all">
+                    Select a New Pair
+                </button>
+            </div>
+
+            <!-- Area to display results and status -->
+            <div id="result-container" class="bg-slate-900 p-6 rounded-lg min-h-[120px] flex items-center justify-center text-center transition-all">
+                 <p class="text-slate-500">Click the button to start the selection...</p>
+            </div>
+            
+            <!-- Display Status Messages -->
+            <div id="status-message" class="text-center text-amber-400 font-medium mt-4 min-h-[24px]"></div>
+
+            <!-- Divider -->
+            <div class="border-b border-slate-700 my-8"></div>
+
+            <!-- Sections for available and total names -->
+            <div class="grid md:grid-cols-2 gap-8">
+                <div>
+                    <h2 class="text-lg font-semibold text-white mb-3">Available in this Cycle</h2>
+                    <div id="available-names-list" class="flex flex-wrap gap-2">
+                        <!-- Available names will be dynamically inserted here -->
+                    </div>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-white mb-3">Full Name List</h2>
+                    <div id="all-names-list" class="flex flex-wrap gap-2 opacity-60">
+                         <!-- All names will be inserted here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Configuration ---
+            const NAMES = [
+                "Alice", "Bob", "Charlie", "Diana",
+                "Ethan", "Fiona", "George", "Hannah"
+            ];
+            const STATE_KEY = "selectionState"; // Key for localStorage
+
+            // --- DOM Element References ---
+            const selectButton = document.getElementById('select-button');
+            const resultContainer = document.getElementById('result-container');
+            const statusMessage = document.getElementById('status-message');
+            const availableNamesList = document.getElementById('available-names-list');
+            const allNamesList = document.getElementById('all-names-list');
+            
+            // --- State Management Functions ---
+            const loadAvailableNames = () => {
+                try {
+                    const storedState = localStorage.getItem(STATE_KEY);
+                    if (!storedState) return [...NAMES]; // Return a copy of the full list
+                    
+                    const data = JSON.parse(storedState);
+                    // Validate data before returning
+                    if (Array.isArray(data) && data.every(item => typeof item === 'string')) {
+                        return data;
+                    }
+                    return [...NAMES]; // Return fresh list if data is invalid
+                } catch (error) {
+                    console.error("Failed to load or parse state, starting fresh:", error);
+                    return [...NAMES]; // Start a new cycle on error
+                }
+            };
+
+            const saveAvailableNames = (names) => {
+                localStorage.setItem(STATE_KEY, JSON.stringify(names));
+            };
+            
+            // --- UI Update Functions ---
+            const createNameBadge = (name) => {
+                const badge = document.createElement('span');
+                badge.className = 'bg-slate-700 text-slate-300 text-sm font-medium px-3 py-1 rounded-full';
+                badge.textContent = name;
+                return badge;
+            };
+
+            const updateAvailableNamesUI = (names) => {
+                availableNamesList.innerHTML = '';
+                if(names.length > 0) {
+                    names.forEach(name => availableNamesList.appendChild(createNameBadge(name)));
+                } else {
+                    availableNamesList.innerHTML = '<p class="text-slate-500 text-sm">None. A new cycle will begin.</p>';
+                }
+            };
+
+            const populateAllNamesUI = () => {
+                NAMES.forEach(name => allNamesList.appendChild(createNameBadge(name)));
+            };
+
+            // --- Core Logic ---
+            const selectNewPair = () => {
+                let availableNames = loadAvailableNames();
+                statusMessage.textContent = ''; // Clear previous status messages
+
+                // If the list has fewer than 2 names, the cycle is complete. Start a new one.
+                if (availableNames.length < 2) {
+                    statusMessage.textContent = 'Cycle complete! Starting a new 4-run cycle.';
+                    availableNames = [...NAMES];
+                }
+
+                // Randomly select two distinct names
+                const shuffled = availableNames.sort(() => 0.5 - Math.random());
+                const chosenPair = shuffled.slice(0, 2);
+
+                // Display the result
+                resultContainer.innerHTML = `
+                    <div class="text-center">
+                        <p class="text-slate-400 mb-2">Selected Pair:</p>
+                        <p class="text-2xl font-bold text-indigo-400">${chosenPair[0]} & ${chosenPair[1]}</p>
+                    </div>
+                `;
+                
+                // Update the list of available names for the next run
+                const remainingNames = availableNames.filter(name => !chosenPair.includes(name));
+
+                // Save the new state
+                saveAvailableNames(remainingNames);
+                
+                // Update the UI to reflect the new state
+                updateAvailableNamesUI(remainingNames);
+                
+                if (remainingNames.length === 0) {
+                     setTimeout(() => {
+                        statusMessage.textContent = 'This was the final run of the cycle. Next click starts over!';
+                     }, 300);
+                }
+            };
+
+            // --- Initial Setup ---
+            const initializeApp = () => {
+                populateAllNamesUI();
+                const currentAvailable = loadAvailableNames();
+                updateAvailableNamesUI(currentAvailable);
+                selectButton.addEventListener('click', selectNewPair);
+            };
+
+            initializeApp();
+        });
+    </script>
+</body>
+</html>
